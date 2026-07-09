@@ -15,11 +15,7 @@
     toggle.addEventListener('click', function () {
       const expanded = toggle.getAttribute('aria-expanded') === 'true';
       toggle.setAttribute('aria-expanded', String(!expanded));
-      if (expanded) {
-        menu.hidden = true;
-      } else {
-        menu.hidden = false;
-      }
+      menu.hidden = expanded;
     });
 
     menu.querySelectorAll('a').forEach(function (link) {
@@ -40,27 +36,84 @@
 
   const form = document.getElementById('contact-form');
   if (form) {
-    form.addEventListener('submit', function (event) {
-      event.preventDefault();
+    const feedback = document.getElementById('form-feedback');
+    const feedbackSubject = document.getElementById('feedback-subject');
+    const feedbackBody = document.getElementById('feedback-body');
+    const copyButton = document.getElementById('copy-message');
+    const openEmailLink = document.getElementById('open-email-link');
+
+    function buildEmailDraft() {
       const data = new FormData(form);
       const name = (data.get('name') || '').toString().trim();
       const email = (data.get('email') || '').toString().trim();
       const company = (data.get('company') || '').toString().trim();
       const message = (data.get('message') || '').toString().trim();
 
-      if (!name || !email || !message) {
-        alert('Please complete the required fields: name, email, and message.');
+      return {
+        name: name,
+        email: email,
+        company: company,
+        message: message,
+        subject: 'Website inquiry from ' + name,
+        body:
+          'Name: ' + name + '\n' +
+          'Email: ' + email + '\n' +
+          'Company: ' + company + '\n\n' +
+          'Message:\n' + message
+      };
+    }
+
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+
+      if (!form.reportValidity()) {
         return;
       }
 
-      const subject = encodeURIComponent('Website inquiry from ' + name);
-      const body = encodeURIComponent(
-        'Name: ' + name + '\n' +
-        'Email: ' + email + '\n' +
-        'Company: ' + company + '\n\n' +
-        'Message:\n' + message
-      );
-      window.location.href = 'mailto:general@edgaroo.com?subject=' + subject + '&body=' + body;
+      const draft = buildEmailDraft();
+      const mailto =
+        'mailto:general@edgaroo.com?subject=' +
+        encodeURIComponent(draft.subject) +
+        '&body=' +
+        encodeURIComponent(draft.body);
+
+      if (feedback && feedbackSubject && feedbackBody) {
+        feedback.hidden = false;
+        feedbackSubject.textContent = draft.subject;
+        feedbackBody.textContent = draft.body;
+        if (openEmailLink) {
+          openEmailLink.href = mailto;
+        }
+      }
+
+      window.location.href = mailto;
     });
+
+    if (copyButton) {
+      copyButton.addEventListener('click', async function () {
+        if (!form.reportValidity()) {
+          return;
+        }
+
+        const draft = buildEmailDraft();
+
+        try {
+          await navigator.clipboard.writeText(
+            'To: general@edgaroo.com\n' +
+            'Subject: ' + draft.subject + '\n\n' +
+            draft.body
+          );
+          copyButton.textContent = 'Copied';
+          window.setTimeout(function () {
+            copyButton.textContent = 'Copy message';
+          }, 1500);
+        } catch (error) {
+          copyButton.textContent = 'Copy failed';
+          window.setTimeout(function () {
+            copyButton.textContent = 'Copy message';
+          }, 1500);
+        }
+      });
+    }
   }
 })();
